@@ -7,6 +7,7 @@ leadForm.addEventListener('submit', async event => {
   leadMessage.textContent = 'Guardando seu anúncio…';
   try {
     sessionStorage.removeItem('miq_preview');
+    sessionStorage.setItem('miq_attempt',crypto.randomUUID());
     const response = await fetch('/api/account', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'lead', ref: document.getElementById('listingRef').value }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error);

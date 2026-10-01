@@ -1,5 +1,6 @@
 import { parseListingRef, isShortListingLink } from './_listing.js';
 import { readCookie, seal, unseal } from './_auth.js';
+import { randomUUID } from 'node:crypto';
 
 export function validateLead(input) {
   if (typeof input !== 'string') return null;
@@ -16,7 +17,14 @@ export function validateLead(input) {
 
 export function leadCookie(request, ref) {
   const secure = process.env.VERCEL || new URL(request.url).protocol === 'https:';
-  return `miq_lead=${encodeURIComponent(seal({ ref, createdAt: Date.now() }))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${secure ? '; Secure' : ''}`;
+  return `miq_lead=${encodeURIComponent(seal({ ref, id:randomUUID(), createdAt: Date.now() }))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${secure ? '; Secure' : ''}`;
+}
+
+export function readLeadState(request) {
+  try {
+    const state = unseal(readCookie(request, 'miq_lead'));
+    return readLead(request) && /^[0-9a-f-]{36}$/i.test(state?.id || '') ? state : null;
+  } catch { return null; }
 }
 
 export function readLead(request) {

@@ -79,7 +79,7 @@ export async function resolveShortListingLink(input, options = {}) {
     const location = response.status >= 300 && response.status < 400 ? response.headers.get('location') : null;
     if (!location) break;
     const next = new URL(location, url);
-    if (!isMercadoLivreHost(next.hostname)) break;
+    if (next.protocol !== 'https:' || next.username || next.password || next.port || !isMercadoLivreHost(next.hostname)) break;
     url = next;
     if (parseListingRef(url.toString())) break;
   }
@@ -429,7 +429,7 @@ export async function analyzeListing(token, input, options = {}) {
   const feeAt = feeCalculator(token, item, store.commission, options);
   const [sellerRaw, meRaw, category, categoryAttributes, search, domain, fee] = await Promise.all([
     optional(mlFetch(`/users/${encodeURIComponent(item.seller_id)}`, token, options)),
-    optional(mlFetch('/users/me', token, options)),
+    options.publicOnly ? null : optional(mlFetch('/users/me', token, options)),
     item.category_id ? optional(mlFetch(`/categories/${encodeURIComponent(item.category_id)}`, token, options)) : null,
     item.category_id ? optional(mlFetch(`/categories/${encodeURIComponent(item.category_id)}/attributes`, token, options)) : null,
     searchTerms ? optional(mlFetch(`/products/search?status=active&limit=10&site_id=${siteId()}&q=${encodeURIComponent(searchTerms)}`, token, options)) : null,

@@ -26,7 +26,7 @@ const securityHeaders = Object.fromEntries(
 );
 
 // Só estes arquivos são públicos. Nunca expor .env, código do servidor, testes etc.
-const publicPages = new Set(['index.html', 'login.html', 'diagnostico.html', 'finalizar.html']);
+const publicPages = new Set(['index.html', 'login.html', 'diagnostico.html', 'finalizar.html', 'analises.html']);
 function publicFile(pathname) {
   let relative;
   try { relative = decodeURIComponent(pathname).replace(/^\/+/, ''); } catch { return null; }

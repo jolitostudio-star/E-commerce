@@ -1,4 +1,15 @@
 import { cookie, readCookie, refreshAccess, seal, unseal } from './_auth.js';
+import { authenticate } from './_account.js';
+import { isAdmin } from './_access.js';
+import { analysisSourceToken } from './_analysis-source.js';
+
+async function ownerSource(request) {
+  if(!readCookie(request,'miq_account')) return null;
+  try {
+    const account=await authenticate(request);
+    return account && isAdmin(account.user) ? await analysisSourceToken() : null;
+  } catch { return null; }
+}
 
 // ML_ACCESS_TOKEN só vale no servidor local; na Vercel cada visitante usa a própria conta via OAuth.
 function developmentToken() {
@@ -7,7 +18,7 @@ function developmentToken() {
 
 export async function mercadoLivreSession(request) {
   const session = unseal(readCookie(request, 'ml_session'));
-  if (!session?.access_token) return { token: developmentToken(), cookie: null };
+  if (!session?.access_token) return { token: await ownerSource(request) || developmentToken(), cookie: null };
   if (!session.refresh_token || session.expires_at >= Date.now() + 60000) {
     return { token: session.access_token, cookie: null };
   }
@@ -15,6 +26,8 @@ export async function mercadoLivreSession(request) {
     const renewed = await refreshAccess(session.refresh_token);
     return { token: renewed.access_token, cookie: cookie('ml_session', seal(renewed), 15552000) };
   } catch (error) {
+    const shared=await ownerSource(request);
+    if(shared) return {token:shared,cookie:null};
     // O refresh token do Mercado Livre é de uso único: outra requisição simultânea pode já tê-lo usado.
     // Enquanto o access token atual não vence, seguimos com ele; depois disso, é preciso reconectar.
     if (session.expires_at > Date.now()) return { token: session.access_token, cookie: null };

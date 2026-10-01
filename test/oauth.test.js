@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { seal } from '../api/_auth.js';
 process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.ADMIN_USER_IDS = 'test-user';
 process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test';
 const originalFetch = globalThis.fetch;
 const request = url => new Request(url, { headers: { cookie: 'miq_account=' + encodeURIComponent(seal({ access_token: 'valid', refresh_token: 'refresh', expires_at: Math.floor(Date.now()/1000)+3600 })) } });

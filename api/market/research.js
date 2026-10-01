@@ -42,5 +42,5 @@ function handlePOST(request) {
   });
 }
 
-export const GET = protect(handleGET);
-export const POST = protect(handlePOST);
+export const GET = protect(handleGET, {admin:true});
+export const POST = protect(handlePOST, {admin:true});

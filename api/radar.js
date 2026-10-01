@@ -21,4 +21,4 @@ function handleGET(request) {
   return respondWithSession(request, token => view(token, params));
 }
 
-export const GET = protect(handleGET);
+export const GET = protect(handleGET, {admin:true});

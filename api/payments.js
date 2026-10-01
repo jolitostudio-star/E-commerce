@@ -4,6 +4,7 @@ import { protect } from './_account.js';
 import { readLead } from './_lead.js';
 import { analyzeListing } from './_listing.js';
 import { mercadoLivreSession, sessionHeaders } from './_session.js';
+import { preparedReport } from './_guest-analysis.js';
 import { paymentConfigured, billingDb, billingError, paymentClients, preferenceBody, checkoutRedirect, normalizeCosts, reconcilePayment, processPaymentEvent, verifyWebhook } from './_billing.js';
 
 const uuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
@@ -58,9 +59,9 @@ async function checkout(request, account) {
   }
   let session = { cookie: null };
   try {
-    session = await mercadoLivreSession(request);
     // Compute and persist the report before charging, so an upstream error cannot charge for an unavailable result.
-    const report = await analyzeListing(session.token, { ref, store: normalizeCosts(input.store) });
+    const report = await preparedReport(request,db);
+    if(!report) throw billingError('Sua consulta expirou. Analise o anúncio novamente antes de pagar.',409,'PREVIEW_REQUIRED');
     const order = { id: crypto.randomUUID(), user_id: account.user.id, request_key: input.requestKey, listing_ref: ref, amount_cents: 100, currency: 'BRL', status: 'creating', report };
     const { error: insertError } = await db.from('diagnostic_orders').insert(order);
     if (insertError?.code === '23505') throw billingError('O pagamento já está sendo preparado. Aguarde e tente consultar novamente.', 409, 'CHECKOUT_PROCESSING');

@@ -18,4 +18,4 @@ async function handlePOST(request) {
   }
 }
 
-export const POST = protect(handlePOST);
+export const POST = protect(handlePOST, {admin:true});

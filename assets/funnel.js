@@ -11,7 +11,7 @@ let accountId = null;
 let previewReady = false;
 let paymentsEnabled = false;
 let requestKey = null;
-let anonymousDemo = false;
+
 
 async function api(path, body) {
   const response = await fetch(path, body ? { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify(body) } : undefined);
@@ -25,31 +25,16 @@ function actionLink(label, href) {
   byId('previewActions').append(link);
 }
 function updatePaymentButton() {
-  payButton.disabled = !paymentsEnabled || !previewReady;
-  payMessage.textContent = !paymentsEnabled ? 'Pagamento ainda em configuração. A prévia é gratuita e nenhuma cobrança será feita agora.' : !previewReady ? 'Veja a prévia antes de decidir pelo pagamento.' : 'Pagamento único. A análise é liberada após a confirmação do Mercado Pago.';
+  payButton.disabled = !previewReady || (Boolean(accountId) && !paymentsEnabled);
+  payMessage.textContent = !accountId ? 'Crie sua conta gratuitamente na próxima etapa. Depois, conclua o pagamento no Mercado Pago.' : !paymentsEnabled ? 'Pagamento ainda em configuração. A prévia é gratuita e nenhuma cobrança será feita agora.' : !previewReady ? 'Veja a prévia antes de decidir pelo pagamento.' : 'Pagamento único. A análise é liberada após a confirmação do Mercado Pago.';
 }
-async function showAnonymousDemo() {
-  const lead = await api('/api/account?view=lead');
-  ref = lead.pendingListing;
-  byId('analysisProgress').classList.add('hidden');
-  byId('paidOffer').classList.add('hidden');
-  byId('reportHistory').closest('section').classList.add('hidden');
-  if (!ref) {
-    if (accountId) { location.replace('/app'); return; }
-    byId('analysisTitle').textContent = 'Qual anúncio você quer analisar?';
-    message.textContent = 'Cole o link de um anúncio para começar. Nenhuma consulta foi iniciada.';
-    actionLink('Informar anúncio →','/');
-    return;
+function showProduct(listing) {
+  const result=byId('previewResult'); result.classList.remove('hidden'); result.replaceChildren();
+  const product=document.createElement('div');product.className='demo-listing';
+  if (/^https:\/\/(?:[\w-]+\.)?mlstatic\.com\//.test(listing.thumbnail || '')) {
+    const image=document.createElement('img');image.src=listing.thumbnail;image.alt=listing.title;image.width=image.height=112;product.append(image);
   }
-  byId('analysisTitle').textContent = 'Precisamos acessar os dados do anúncio.';
-  message.textContent = 'Seu link foi salvo, mas ainda não consultamos o produto. A integração atual exige a conexão com o Mercado Livre. Nenhuma análise foi concluída e nenhuma cobrança será feita agora.';
-  actionLink(accountId ? 'Conectar Mercado Livre gratuitamente →' : 'Criar conta gratuita para consultar →', accountId ? '/conectar/mercadolivre?next=diagnostico' : '/login?next=diagnostico');
-}
-function savedPreview() {
-  try {
-    const saved = JSON.parse(sessionStorage.getItem('miq_preview') || 'null');
-    return saved && saved.ref === ref && saved.accountId === accountId && Date.now() - saved.at < 15 * 60 * 1000 ? saved.data : null;
-  } catch { return null; }
+  const title=document.createElement('h2');title.textContent=listing.title;product.append(title);result.append(product);
 }
 function updateProgress(event) {
   const row = [...byId('analysisProgress').querySelectorAll('[data-stage]')].find(entry => entry.dataset.stage === event.stage);
@@ -59,9 +44,9 @@ function updateProgress(event) {
   row.querySelector('small').textContent = event.state === 'done' ? 'Consultado' : 'Em andamento';
 }
 async function analyzeWithProgress() {
-  byId('analysisTitle').textContent = 'Analisando seu anúncio.';
-  byId('analysisProgress').classList.remove('hidden');
-  const response = await fetch('/api/analysis/listing', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({action:'previa',progress:true}) });
+  byId('analysisTitle').textContent = query.get('checkout') === '1' ? 'Retomando seu pagamento.' : 'Analisando seu anúncio.';
+  if (query.get('checkout') !== '1') byId('analysisProgress').classList.remove('hidden');
+  const response = await fetch('/api/analysis/listing', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({action:'previa',progress:true,resume:query.get('checkout')==='1'}) });
   if (!response.ok) {
     const data = await response.json();
     throw Object.assign(new Error(data.error), {code:data.code});
@@ -72,7 +57,7 @@ async function analyzeWithProgress() {
     if (!line.trim()) return;
     const event = JSON.parse(line);
     if (event.type === 'progress') updateProgress(event);
-    if (event.type === 'listing') message.textContent = 'Analisando: ' + event.listing.title;
+    if (event.type === 'listing') {message.textContent = 'Analisando: ' + event.listing.title;showProduct(event.listing);}
     if (event.type === 'ready') preview = event.preview;
     if (event.type === 'error') throw Object.assign(new Error(event.error), {code:event.code});
   }
@@ -94,21 +79,22 @@ async function analyzeWithProgress() {
 }
 function renderPreview(data) {
   previewReady = true;
-  byId('analysisTitle').textContent = 'Consulta concluída. Veja seu próximo passo.';
+  byId('analysisTitle').textContent = 'Seu anúncio foi consultado.';
+  byId('analysisProgress').classList.add('hidden');
   byId('paidOffer').classList.remove('hidden');
-  message.textContent = data.listing.title;
-  const result = byId('previewResult'); result.classList.remove('hidden');
-  result.innerHTML = `<div class="score">${data.titleScore === null ? '—' : escapeHtml(data.titleScore)}<span>/100 · critérios do título</span></div><p class="small">${escapeHtml(data.note)}</p><div class="finding"><span class="eyebrow">${escapeHtml(data.finding.area)}</span><h3>${escapeHtml(data.finding.title)}</h3><p>${escapeHtml(data.finding.detail)}</p></div><p class="small">Esta é uma prévia. A análise completa organiza os dados disponíveis e as sugestões.</p>`;
-  const product = document.createElement('div'); product.className = 'demo-listing';
-  if (/^https:\/\/(?:[\w-]+\.)?mlstatic\.com\//.test(data.listing.thumbnail || '')) {
-    const image = document.createElement('img'); image.src = data.listing.thumbnail; image.alt = data.listing.title; image.width = image.height = 112; product.append(image);
-  }
-  const title = document.createElement('h2'); title.textContent = data.listing.title; product.append(title); result.prepend(product);
+  byId('paidOffer').querySelector('details').classList.add('hidden');
+  message.textContent = 'O relatório está preparado. O pagamento de R$ 1 libera as notas, os pontos de melhoria e as sugestões.';
+  showProduct(data.listing);
+  const result=byId('previewResult');
+  const lock=document.createElement('p');lock.className='small';lock.textContent='✓ Produto identificado · Resultado completo reservado até a confirmação do pagamento.';result.append(lock);
+  payButton.textContent=accountId?'Pagar com Mercado Pago →':'Liberar relatório por R$ 1 →';
   updatePaymentButton();
 }
 function renderFull(report) {
+  showProduct(report.listing);
   byId('analysisTitle').textContent = 'Seu resultado está liberado.';
   byId('paidOffer').classList.add('hidden');
+  byId('panelUpsell').classList.remove('hidden');
   byId('previewActions').replaceChildren();
   message.textContent = `Pagamento confirmado. Análise de ${report.listing.id} disponível.`;
   const target = byId('fullResult'); target.classList.remove('hidden');
@@ -142,7 +128,6 @@ async function checkOrder() {
   return false;
 }
 async function loadHistory() {
-  if (!paymentsEnabled) { byId('reportHistory').textContent = 'Suas análises pagas aparecerão aqui.'; return; }
   try {
     const { orders } = await api('/api/payments?view=history');
     byId('reportHistory').replaceChildren();
@@ -156,63 +141,37 @@ async function loadHistory() {
 }
 async function start() {
   try {
-    const account = await api('/api/account');
-    accountId = account.user.id; ref = account.pendingListing;
-    try {
-      const draft = JSON.parse(sessionStorage.getItem(accountId + ':miq_analysis_costs') || '{}');
-      for (const name of ['cost','packaging','shipping','target']) if (Number.isFinite(Number(draft[name])) && Number(draft[name]) >= 0) byId(name).value = draft[name];
-    } catch { /* Optional local draft. */ }
-    const config = await api('/api/payments?view=config'); paymentsEnabled = config.enabled;
-    updatePaymentButton();
-    await loadHistory();
-    if (currentOrder) {
+    const account=await api('/api/account').catch(error=>{if(error.code==='AUTH_REQUIRED')return null;throw error;});
+    accountId=account?.user.id || null;
+    const config=await api('/api/payments?view=config'); paymentsEnabled=config.enabled;
+    if(accountId) await loadHistory(); else byId('reportHistory').closest('section').classList.add('hidden');
+    if(currentOrder) {
+      if(!accountId) {message.textContent='Entre na conta que comprou esta análise.';actionLink('Entrar para ver meu relatório →','/login?order='+encodeURIComponent(currentOrder));return;}
       byId('paidOffer').classList.remove('hidden');
-      byId('analysisTitle').textContent = 'Confirmação do pagamento';
-      message.textContent = 'Consulte a confirmação do pagamento da sua análise.';
-      for (const name of ['cost','packaging','shipping','target']) byId(name).disabled = true;
-      await checkOrder();
-      return;
+      byId('analysisTitle').textContent='Confirmação do pagamento';
+      await checkOrder();return;
     }
-    if (!ref) { location.replace('/app'); return; }
-    message.textContent = 'Consultando os dados do anúncio…';
-    const data = savedPreview() || await analyzeWithProgress();
-    try { sessionStorage.setItem('miq_preview', JSON.stringify({ref,accountId,at:Date.now(),data})); } catch {}
-    renderPreview(data);
-    if (currentOrder) {
-      payButton.disabled = true;
-      for (const name of ['cost','packaging','shipping','target']) byId(name).disabled = true;
+    const lead=await api('/api/account?view=lead');ref=lead.pendingListing;
+    if(!ref) {
+      if(accountId){location.replace(account.admin?'/app':'/analises');return;}
+      byId('analysisTitle').textContent='Qual anúncio você quer analisar?';message.textContent='Cole um link de anúncio para começar.';actionLink('Informar anúncio →','/');return;
     }
-    const key = `${accountId}:miq_checkout:${ref}`;
-    requestKey = localStorage.getItem(key) || crypto.randomUUID(); localStorage.setItem(key, requestKey);
-  } catch (error) {
-    byId('analysisTitle').textContent = 'Vamos continuar sua análise.';
-    for (const row of byId('analysisProgress').querySelectorAll('[data-state="running"]')) {
-      row.dataset.state = 'paused'; row.querySelector('small').textContent = 'Interrompido';
+    const data=await analyzeWithProgress();renderPreview(data);
+    if(accountId){
+      const attempt=sessionStorage.getItem('miq_attempt')||crypto.randomUUID();sessionStorage.setItem('miq_attempt',attempt);
+      const key=accountId+':miq_checkout:'+ref+':'+attempt;
+      requestKey=localStorage.getItem(key)||crypto.randomUUID();localStorage.setItem(key,requestKey);
+      if(query.get('checkout')==='1' && paymentsEnabled) await checkout();
     }
-    if (error.code === 'AUTH_REQUIRED') {
-      if (currentOrder) {
-        message.textContent = 'Entre na conta que comprou esta análise para consultar o resultado.';
-        actionLink('Entrar na minha conta →','/login');
-        return;
-      }
-      try { await showAnonymousDemo(); } catch (demoError) {
-        message.textContent = demoError.message || 'Não foi possível preparar a demonstração.';
-        actionLink('Informar anúncio →','/');
-      }
-      return;
-    }
-    message.textContent = error.message;
-    if (error.code === 'ML_NOT_CONNECTED' || /ML_SESSION_EXPIRED/.test(error.code || '')) {
-      try { await showAnonymousDemo(); } catch { actionLink('Conectar Mercado Livre e continuar', '/conectar/mercadolivre?next=diagnostico'); }
-    }
-    else actionLink('Informar outro anúncio', '/');
+  } catch(error) {
+    byId('paidOffer').classList.add('hidden');
+    byId('analysisTitle').textContent='Não foi possível concluir a consulta.';
+    message.textContent=error.message;
+    for(const row of byId('analysisProgress').querySelectorAll('[data-state="running"]')){row.dataset.state='paused';row.querySelector('small').textContent='Interrompido';}
+    actionLink('Informar outro anúncio →','/');
   }
 }
-payButton.addEventListener('click', async () => {
-  if (anonymousDemo) {
-    location.assign(accountId ? '/conectar/mercadolivre?next=diagnostico' : '/login?next=diagnostico&checkout=1');
-    return;
-  }
+async function checkout() {
   payButton.disabled = true; payMessage.textContent = 'Preparando sua análise e o checkout de R$ 1…';
   try {
     const data = await api('/api/payments', { requestKey, store: { cost: byId('cost')?.value || 0, packaging: byId('packaging')?.value || 0, shipping: byId('shipping')?.value || 0, target: byId('target')?.value || 20 } });
@@ -223,5 +182,9 @@ payButton.addEventListener('click', async () => {
     history.replaceState(null, '', '/diagnostico?order=' + encodeURIComponent(data.order));
     location.assign(data.checkoutUrl);
   } catch (error) { payMessage.textContent = error.message; payButton.disabled = !paymentsEnabled || !previewReady; }
+}
+payButton.addEventListener('click', () => {
+  if(!accountId){location.assign('/login?next=diagnostico&checkout=1');return;}
+  checkout();
 });
 start();

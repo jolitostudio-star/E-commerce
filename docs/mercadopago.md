@@ -144,3 +144,21 @@ Configure credenciais, valide o checkout e as notificações com contas de teste
 - Skill: mp-review v1.0.0; mp-integrate; mp-webhooks.
 
 **Scores**: official quality: N/A, 9/9 security. **Verdict**: Blocked for payment activation; public funnel may be published with payments disabled.
+
+## Fluxo de análise avulsa e painel privado (1 de outubro de 2026)
+
+O painel é exclusivo da conta proprietária (ID verificado configurado em api/_access.js). ADMIN_USER_IDS permite configurar outro proprietário no servidor. Compradores entram em /analises e não podem acessar o HTML do painel, os endpoints de lojas, OAuth ou ferramentas administrativas. Metadados editáveis do usuário não concedem permissões.
+
+A consulta começa sem cadastro, a partir de um cookie HttpOnly que identifica o anúncio e a tentativa. api/_guest-analysis.js prepara e guarda o relatório no servidor. A resposta pública contém somente identificação, foto e data da consulta: nenhuma nota, conclusão ou estratégia. O botão de R$ 1 leva ao cadastro gratuito; o retorno recupera o relatório preparado e abre o Checkout Pro. Não há nova consulta no retorno do cadastro; uma consulta expirada exige que o visitante inicie novamente. O Mercado Pago confirma o pagamento, e apenas a conta compradora pode ler o relatório ou reabri-lo. Esse pagamento não concede acesso ao painel. A futura oferta do painel está desativada, com preço ainda a definir.
+
+### Ativação da fonte de dados
+
+No painel do proprietário, use **Ativar consultas pelo link**. Se a conta do Mercado Livre ainda não estiver conectada, o botão abre a autorização oficial. A conexão OAuth do proprietário salva a credencial criptografada em diagnostic_source, acessível somente pelo servidor. Consultas de visitantes usam apenas operações de leitura dos dados públicos do produto e não consultam /users/me. Não encaminham credenciais ao visitante. Tokens são renovados com uma reserva atômica no banco para evitar renovações simultâneas. Após rotacionar SESSION_SECRET, é necessário conectar novamente.
+
+ML_ANALYSIS_ACCESS_TOKEN é uma alternativa opcional, somente no servidor, e exige manutenção/renovação externa. O botão e OAuth persistido são a configuração normal. Nenhuma consulta ou checkout recebe um token de Mercado Livre fornecido pelo comprador.
+
+A API pode recusar dados de anúncios de terceiros mesmo com OAuth. Sem dados acessíveis, a consulta mostra um erro e não libera o checkout. É necessário testar um anúncio individual real após a ativação. Links de vitrine de afiliado não substituem um link de produto. Não há contorno de restrições de acesso ou simulação de um resultado bem-sucedido.
+
+### Validação e limites
+
+Os relatórios preparados expiram em uma hora. As tabelas diagnostic_previews e diagnostic_source têm RLS e não concedem acesso direto a anon ou authenticated. Uma limitação global de consultas por minuto reduz abuso; não representa uma cota comercial nem substitui limitação de tráfego na borda. Pagamentos continuam controlados por MP_PAYMENTS_ENABLED, sem ativação automática nesta mudança. A cobrança real e a consulta externa precisam de validação pelo proprietário após conectar a fonte. Os testes verificam preparação antes da cobrança, ausência de resultados privados na resposta pública, retorno sem repetição, propriedade de pedidos e bloqueio do painel a compradores.

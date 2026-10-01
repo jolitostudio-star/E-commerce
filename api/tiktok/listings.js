@@ -17,4 +17,4 @@ async function handleGET(request) {
   }
 }
 
-export const GET = protect(handleGET);
+export const GET = protect(handleGET, {admin:true});

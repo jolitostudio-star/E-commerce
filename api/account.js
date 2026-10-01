@@ -1,7 +1,9 @@
 import { client, accountCookie, authenticate, sameOrigin, protect } from './_account.js';
-import { clearCookie } from './_auth.js';
+import { clearCookie, readCookie, unseal } from './_auth.js';
 import { dashboard } from './_app.js';
 import { validateLead, leadCookie, readLead } from './_lead.js';
+import { isAdmin } from './_access.js';
+import { saveAnalysisSource } from './_analysis-source.js';
 
 export async function GET(request) {
   if (new URL(request.url).searchParams.get('view') === 'lead') {
@@ -12,9 +14,9 @@ export async function GET(request) {
       const id = JSON.stringify(account.user.id).replace(/</g, '\\u003c');
       const html = dashboard.replace('<head>', `<head><script>window.accountId=${id};</script>`);
       return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
-    }, { page: true })(request);
+    }, { page: true, admin: true })(request);
   }
-  return protect((req, account) => Response.json({ user: { id: account.user.id, email: account.user.email }, pendingListing: readLead(req) }))(request);
+  return protect((req, account) => Response.json({ user: { id: account.user.id, email: account.user.email }, admin: isAdmin(account.user), pendingListing: readLead(req) }))(request);
 }
 
 export async function POST(request) {
@@ -22,6 +24,14 @@ export async function POST(request) {
   try {
     sameOrigin(request);
     const input = await request.json();
+    if(input.action === 'analysis_source') {
+      const account=await authenticate(request);
+      if(!account || !isAdmin(account.user)) return Response.json({error:'Apenas o proprietário pode configurar a consulta.'},{status:403,headers});
+      const token=unseal(readCookie(request,'ml_session'));
+      if(!token?.access_token || token.expires_at<Date.now()+60000) return Response.json({error:'Conecte novamente o Mercado Livre no painel para ativar as consultas.',code:'ML_NOT_CONNECTED'},{status:409,headers});
+      await saveAnalysisSource(account,token);
+      return Response.json({ok:true},{headers});
+    }
     if (input.action === 'lead') {
       const ref = validateLead(input.ref);
       if (!ref) return Response.json({ error: 'Cole um link válido de anúncio do Mercado Livre ou o ID MLB.' }, { status: 400, headers });
@@ -53,7 +63,9 @@ export async function POST(request) {
     }
     const continuing = input.next === 'diagnostico' && readLead(request);
     if (data.session && !continuing) headers.append('set-cookie', clearCookie('miq_lead'));
-    return Response.json({ ok: true, signedIn: Boolean(data.session), next: continuing ? '/diagnostico' : '/app', message: data.session ? 'Bem-vindo!' : 'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.' }, { headers });
+    const order = /^[0-9a-f-]{36}$/i.test(input.order || '') ? input.order : null;
+    const next = order ? '/diagnostico?order=' + encodeURIComponent(order) : continuing ? '/diagnostico?checkout=1' : isAdmin(data.user) ? '/app' : '/analises';
+    return Response.json({ ok: true, signedIn: Boolean(data.session), next, message: data.session ? 'Bem-vindo!' : 'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.' }, { headers });
   } catch (error) {
     return Response.json({ error: error.status ? error.message : 'Não foi possível concluir. Tente novamente.' }, { status: error.status || 503, headers });
   }

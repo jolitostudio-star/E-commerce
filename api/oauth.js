@@ -19,15 +19,15 @@ function notFound() {
   return Response.json({ error: 'Rota não encontrada.' }, { status: 404 });
 }
 
-function handleGET(request) {
+function handleGET(request, account) {
   const handler = handlerFor(request, 'GET');
-  return handler ? handler(request) : notFound();
+  return handler ? handler(request, account) : notFound();
 }
 
-function handlePOST(request) {
+function handlePOST(request, account) {
   const handler = handlerFor(request, 'POST');
-  return handler ? handler(request) : notFound();
+  return handler ? handler(request, account) : notFound();
 }
 
-export const GET = protect(handleGET, { page: true });
-export const POST = protect(handlePOST);
+export const GET = protect(handleGET, { page: true, admin:true });
+export const POST = protect(handlePOST, {admin:true});

@@ -6,6 +6,7 @@ import { seal } from '../api/_auth.js';
 import { leadCookie } from '../api/_lead.js';
 
 process.env.SESSION_SECRET = 'test-secret-at-least-thirty-two-characters';
+process.env.ADMIN_USER_IDS = 'owner';
 process.env.SUPABASE_URL = 'https://example.supabase.co';
 process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test';
 const origin = 'https://example.com';
@@ -101,6 +102,23 @@ test('only explicit continuation with a saved listing returns to diagnosis', asy
   for (const hasLead of [true,false]) {
     const cookie = hasLead ? leadCookie(new Request(origin), 'MLB12345678').split(';')[0] : '';
     const response = await POST(request(cookie, {method:'POST',body:JSON.stringify({action:'login',next:'diagnostico',email:'owner@example.com',password:'test-password'})}));
-    assert.equal((await response.json()).next, hasLead ? '/diagnostico' : '/app');
+    assert.equal((await response.json()).next, hasLead ? '/diagnostico?checkout=1' : '/app');
+  }
+});
+
+test('customers cannot open the owner dashboard, even with forged user metadata', async () => {
+  globalThis.fetch = async () => Response.json({id:'buyer',email:'buyer@example.com',user_metadata:{role:'admin'}});
+  const cookie='miq_account='+encodeURIComponent(seal(session));
+  const response=await GET(new Request(origin+'/api/account?view=app',{headers:{cookie}}));
+  assert.equal(response.status,303);assert.equal(response.headers.get('location'),'/analises');
+  const apiResponse=await protect(()=>{throw new Error('Must not run');},{admin:true})(request(cookie));
+  assert.equal(apiResponse.status,403);
+});
+
+test('customer login goes to reports and preserves a specific paid order destination', async () => {
+  globalThis.fetch=async()=>Response.json({...session,expires_in:3600,user:{id:'buyer',email:'buyer@example.com'}});
+  for(const order of [null,'3e8198f5-c4b1-46a8-b69a-5474a0e9a8f7']){
+    const response=await POST(request('',{method:'POST',body:JSON.stringify({action:'login',email:'buyer@example.com',password:'test-password',order})}));
+    assert.equal((await response.json()).next,order?'/diagnostico?order='+order:'/analises');
   }
 });

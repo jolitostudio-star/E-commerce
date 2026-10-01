@@ -7,4 +7,4 @@ function handleGET(request) {
   return respondWithSession(request, token => listSellerOrders(token, { days }));
 }
 
-export const GET = protect(handleGET);
+export const GET = protect(handleGET, {admin:true});
