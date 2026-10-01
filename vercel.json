@@ -20,10 +20,6 @@
       "destination": "/api/account?view=app"
     },
     {
-      "source": "/login",
-      "destination": "/index.html"
-    },
-    {
       "source": "/integracao/mercadolivre/retorno",
       "destination": "/api/oauth?provider=mercadolivre&step=callback"
     },

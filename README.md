@@ -10,7 +10,7 @@ Painel de margem para operações de e-commerce. A pesquisa competitiva usa dado
 
 Execute `npm.cmd install` antes de iniciar. A autenticação usa o cliente oficial do Supabase.
 
-O `server.mjs` executa as mesmas funções de `api/` usadas na Vercel (incluindo as reescritas de `vercel.json`) e serve apenas `index.html`, `finalizar.html` e `assets/`. O `ML_ACCESS_TOKEN` só é usado fora da Vercel; em produção cada visitante conecta a própria conta via OAuth.
+O `server.mjs` executa as mesmas funções de `api/` usadas na Vercel (incluindo as reescritas de `vercel.json`) e serve apenas `login.html`, `finalizar.html` e `assets/`. O `ML_ACCESS_TOKEN` só é usado fora da Vercel; em produção cada visitante conecta a própria conta via OAuth.
 
 ## Publicar na Vercel
 

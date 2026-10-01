@@ -6,3 +6,6 @@ test/
 server.mjs
 data/
 *.log
+.codex-audio-tools/
+.codex-video-tools/
+.video-analysis/
