@@ -51,7 +51,9 @@ export async function POST(request) {
       // Prevent marketplace credentials carrying over when a different person signs in.
       for (const name of ['ml_session', 'shopee_session', 'tiktok_session']) headers.append('set-cookie', clearCookie(name));
     }
-    return Response.json({ ok: true, signedIn: Boolean(data.session), next: readLead(request) ? '/diagnostico' : '/app', message: data.session ? 'Bem-vindo!' : 'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.' }, { headers });
+    const continuing = input.next === 'diagnostico' && readLead(request);
+    if (data.session && !continuing) headers.append('set-cookie', clearCookie('miq_lead'));
+    return Response.json({ ok: true, signedIn: Boolean(data.session), next: continuing ? '/diagnostico' : '/app', message: data.session ? 'Bem-vindo!' : 'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.' }, { headers });
   } catch (error) {
     return Response.json({ error: error.status ? error.message : 'Não foi possível concluir. Tente novamente.' }, { status: error.status || 503, headers });
   }

@@ -9,7 +9,7 @@ export function streamPreview(token, ref, analyze = analyzeListing) {
     async start(controller) {
       const emit = event => { if (!cancelled) controller.enqueue(encoder.encode(JSON.stringify(event) + '\n')); };
       try {
-        const report = await analyze(token, { ref }, { onProgress: progress => emit({ type: 'progress', ...progress }) });
+        const report = await analyze(token, { ref }, { onProgress: progress => emit({ type: 'progress', ...progress }), onListing: listing => emit({ type: 'listing', listing }) });
         emit({ type: 'ready', preview: previewOf(report) });
       } catch (error) {
         emit({ type: 'error', error: error.status ? error.message : 'Não foi possível concluir a consulta. Tente novamente.', code: error.code || 'ANALYSIS_FAILED' });

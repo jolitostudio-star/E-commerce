@@ -40,7 +40,7 @@ export function previewOf(analysis) {
     finding = { area: 'Título', title: 'Um bom ponto de partida', detail: 'O título atende aos critérios técnicos avaliados. Isso não garante vendas; preço, conteúdo e condições da oferta também importam.' };
   }
   return {
-    listing: { id: analysis.listing.id, title: analysis.listing.title },
+    listing: { id: analysis.listing.id, title: analysis.listing.title, ...(analysis.listing.thumbnail ? { thumbnail: analysis.listing.thumbnail } : {}) },
     titleScore: Number.isFinite(titleScore) ? titleScore : null,
     finding,
     analyzedAt: analysis.analyzedAt,

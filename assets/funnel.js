@@ -31,40 +31,25 @@ function updatePaymentButton() {
 async function showAnonymousDemo() {
   const lead = await api('/api/account?view=lead');
   ref = lead.pendingListing;
+  byId('analysisProgress').classList.add('hidden');
+  byId('paidOffer').classList.add('hidden');
+  byId('reportHistory').closest('section').classList.add('hidden');
   if (!ref) {
+    if (accountId) { location.replace('/app'); return; }
     byId('analysisTitle').textContent = 'Qual anúncio você quer analisar?';
-    message.textContent = 'Informe um link de anúncio do Mercado Livre para começar.';
+    message.textContent = 'Cole o link de um anúncio para começar. Nenhuma consulta foi iniciada.';
     actionLink('Informar anúncio →','/');
     return;
   }
-  anonymousDemo = true;
-  byId('analysisTitle').textContent = 'Veja como funciona o diagnóstico.';
-  message.textContent = accountId
-    ? 'Simulação demonstrativa. Seu link foi salvo. Ao continuar, você conecta o Mercado Livre para consultar os dados reais do anúncio.'
-    : 'Simulação demonstrativa. O link foi salvo; a consulta real do anúncio acontece depois do cadastro e da conexão com o Mercado Livre.';
-  byId('analysisProgress').classList.remove('hidden');
-  byId('analysisProgress').querySelector('p').textContent = 'Estas etapas apresentam o funcionamento da análise. Não são resultados do seu anúncio. Relatório completo por R$ 1, sem assinatura.';
-  for (const stage of ['link','content','pricing','summary']) {
-    updateProgress({stage,state:'running'});
-    await new Promise(resolve => setTimeout(resolve,800));
-    const row = [...byId('analysisProgress').querySelectorAll('[data-stage]')].find(entry=>entry.dataset.stage===stage);
-    row.dataset.state = 'done';
-    row.querySelector('.stage-icon').textContent = '✓';
-    row.querySelector('small').textContent = 'Apresentado';
-  }
-  byId('analysisTitle').textContent = 'Próximo passo: liberar sua análise completa.';
-  byId('paidOffer').classList.remove('hidden');
-  byId('paidOffer').querySelector('h2').textContent = 'Continue por R$ 1 por anúncio.';
-  byId('paidOffer').querySelector('details').classList.add('hidden');
-  byId('paidOffer').querySelector('p.small').textContent = accountId
-    ? 'Sua conta já está criada. Ao continuar, conecte o Mercado Livre. O pagamento vem depois da consulta real, antes de liberar o relatório completo.'
-    : 'Ao continuar, você cria sua conta gratuitamente e conecta o Mercado Livre. O pagamento vem depois da consulta real, antes de liberar o relatório completo.';
-  const config = await api('/api/payments?view=config');
-  payButton.textContent = 'Continuar por R$ 1 →';
-  payButton.disabled = false;
-  payMessage.textContent = config.enabled ? 'Cadastro gratuito na próxima etapa. Nenhuma cobrança é feita ao criar sua conta.' : 'Você pode criar sua conta agora. A cobrança ainda está desativada; nenhum pagamento será feito nesta etapa.';
-  if (accountId) payMessage.textContent = config.enabled ? 'Sua conta já está criada. Conecte o Mercado Livre na próxima etapa para continuar.' : 'Você pode conectar o Mercado Livre agora. A cobrança ainda está desativada; nenhum pagamento será feito nesta etapa.';
-  byId('reportHistory').closest('section').classList.add('hidden');
+  byId('analysisTitle').textContent = 'Precisamos acessar os dados do anúncio.';
+  message.textContent = 'Seu link foi salvo, mas ainda não consultamos o produto. A integração atual exige a conexão com o Mercado Livre. Nenhuma análise foi concluída e nenhuma cobrança será feita agora.';
+  actionLink(accountId ? 'Conectar Mercado Livre gratuitamente →' : 'Criar conta gratuita para consultar →', accountId ? '/conectar/mercadolivre?next=diagnostico' : '/login?next=diagnostico');
+}
+function savedPreview() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('miq_preview') || 'null');
+    return saved && saved.ref === ref && saved.accountId === accountId && Date.now() - saved.at < 15 * 60 * 1000 ? saved.data : null;
+  } catch { return null; }
 }
 function updateProgress(event) {
   const row = [...byId('analysisProgress').querySelectorAll('[data-stage]')].find(entry => entry.dataset.stage === event.stage);
@@ -87,6 +72,7 @@ async function analyzeWithProgress() {
     if (!line.trim()) return;
     const event = JSON.parse(line);
     if (event.type === 'progress') updateProgress(event);
+    if (event.type === 'listing') message.textContent = 'Analisando: ' + event.listing.title;
     if (event.type === 'ready') preview = event.preview;
     if (event.type === 'error') throw Object.assign(new Error(event.error), {code:event.code});
   }
@@ -113,6 +99,11 @@ function renderPreview(data) {
   message.textContent = data.listing.title;
   const result = byId('previewResult'); result.classList.remove('hidden');
   result.innerHTML = `<div class="score">${data.titleScore === null ? '—' : escapeHtml(data.titleScore)}<span>/100 · critérios do título</span></div><p class="small">${escapeHtml(data.note)}</p><div class="finding"><span class="eyebrow">${escapeHtml(data.finding.area)}</span><h3>${escapeHtml(data.finding.title)}</h3><p>${escapeHtml(data.finding.detail)}</p></div><p class="small">Esta é uma prévia. A análise completa organiza os dados disponíveis e as sugestões.</p>`;
+  const product = document.createElement('div'); product.className = 'demo-listing';
+  if (/^https:\/\/(?:[\w-]+\.)?mlstatic\.com\//.test(data.listing.thumbnail || '')) {
+    const image = document.createElement('img'); image.src = data.listing.thumbnail; image.alt = data.listing.title; image.width = image.height = 112; product.append(image);
+  }
+  const title = document.createElement('h2'); title.textContent = data.listing.title; product.append(title); result.prepend(product);
   updatePaymentButton();
 }
 function renderFull(report) {
@@ -182,9 +173,10 @@ async function start() {
       await checkOrder();
       return;
     }
-    if (!ref) { message.textContent = 'Cole o link do anúncio para começar.'; actionLink('Informar anúncio', '/'); return; }
+    if (!ref) { location.replace('/app'); return; }
     message.textContent = 'Consultando os dados do anúncio…';
-    const data = await analyzeWithProgress();
+    const data = savedPreview() || await analyzeWithProgress();
+    try { sessionStorage.setItem('miq_preview', JSON.stringify({ref,accountId,at:Date.now(),data})); } catch {}
     renderPreview(data);
     if (currentOrder) {
       payButton.disabled = true;

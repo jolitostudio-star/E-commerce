@@ -420,6 +420,7 @@ export async function analyzeListing(token, input, options = {}) {
     throw error;
   });
   if (!(Number(item?.price) > 0)) throw mlError('O anúncio não tem um preço ativo para analisar.', 422, 'LISTING_WITHOUT_PRICE');
+  options.onListing?.({ id: String(item.id), title: String(item.title || ''), thumbnail: item.pictures?.[0]?.secure_url || item.secure_thumbnail || null });
   progress('link', 'done');
   progress('content', 'running');
   progress('pricing', 'running');
@@ -480,6 +481,7 @@ export async function analyzeListing(token, input, options = {}) {
     listing: {
       id: String(item.id),
       title: String(item.title || ''),
+      thumbnail: item.pictures?.[0]?.secure_url || item.secure_thumbnail || null,
       permalink: typeof item.permalink === 'string' ? item.permalink : null,
       condition: String(item.condition || ''),
       catalogListing: Boolean(item.catalog_listing),

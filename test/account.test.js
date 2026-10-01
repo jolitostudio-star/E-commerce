@@ -87,3 +87,20 @@ test('session cookies support localhost and require Secure on HTTPS', () => {
   assert.match(accountCookie(request(), session), /; Secure$/);
   assert.doesNotMatch(accountCookie(new Request('http://localhost:3000'), session), /Secure/);
 });
+
+test('normal login ignores and clears an old listing reference', async () => {
+  globalThis.fetch = async () => Response.json({ ...session, expires_in:3600, user:{id:'owner'} });
+  const cookie = leadCookie(new Request(origin), 'MLB12345678').split(';')[0];
+  const response = await POST(request(cookie, {method:'POST',body:JSON.stringify({action:'login',email:'owner@example.com',password:'test-password'})}));
+  assert.equal((await response.json()).next, '/app');
+  assert.match(response.headers.get('set-cookie'), /miq_lead=;.*Max-Age=0/);
+});
+
+test('only explicit continuation with a saved listing returns to diagnosis', async () => {
+  globalThis.fetch = async () => Response.json({ ...session, expires_in:3600, user:{id:'owner'} });
+  for (const hasLead of [true,false]) {
+    const cookie = hasLead ? leadCookie(new Request(origin), 'MLB12345678').split(';')[0] : '';
+    const response = await POST(request(cookie, {method:'POST',body:JSON.stringify({action:'login',next:'diagnostico',email:'owner@example.com',password:'test-password'})}));
+    assert.equal((await response.json()).next, hasLead ? '/diagnostico' : '/app');
+  }
+});

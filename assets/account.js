@@ -11,6 +11,7 @@ logout.addEventListener('click', async () => {
 });
 document.body.append(logout);
 window.startPaidAnalysis = async (ref, costs = null) => {
+  sessionStorage.removeItem('miq_preview');
   const response = await fetch('/api/account', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'lead', ref }) });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Não foi possível continuar.');

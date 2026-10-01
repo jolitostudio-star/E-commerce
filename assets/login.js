@@ -18,7 +18,7 @@ form.onsubmit = async event => {
   submit.disabled = toggle.disabled = true;
   message.textContent = 'Aguarde…';
   try {
-    const response = await fetch('/api/account', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, email: document.getElementById('email').value, password: password.value }) });
+    const response = await fetch('/api/account', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, next: new URLSearchParams(location.search).get('next'), email: document.getElementById('email').value, password: password.value }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error);
     password.value = '';
