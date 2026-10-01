@@ -39,7 +39,9 @@ async function showAnonymousDemo() {
   }
   anonymousDemo = true;
   byId('analysisTitle').textContent = 'Veja como funciona o diagnóstico.';
-  message.textContent = 'Simulação demonstrativa. O link foi salvo; a consulta real do anúncio acontece depois do cadastro e da conexão com o Mercado Livre.';
+  message.textContent = accountId
+    ? 'Simulação demonstrativa. Seu link foi salvo. Ao continuar, você conecta o Mercado Livre para consultar os dados reais do anúncio.'
+    : 'Simulação demonstrativa. O link foi salvo; a consulta real do anúncio acontece depois do cadastro e da conexão com o Mercado Livre.';
   byId('analysisProgress').classList.remove('hidden');
   byId('analysisProgress').querySelector('p').textContent = 'Estas etapas apresentam o funcionamento da análise. Não são resultados do seu anúncio. Relatório completo por R$ 1, sem assinatura.';
   for (const stage of ['link','content','pricing','summary']) {
@@ -54,11 +56,14 @@ async function showAnonymousDemo() {
   byId('paidOffer').classList.remove('hidden');
   byId('paidOffer').querySelector('h2').textContent = 'Continue por R$ 1 por anúncio.';
   byId('paidOffer').querySelector('details').classList.add('hidden');
-  byId('paidOffer').querySelector('p.small').textContent = 'Ao continuar, você cria sua conta gratuitamente e conecta o Mercado Livre. O pagamento vem depois da consulta real, antes de liberar o relatório completo.';
+  byId('paidOffer').querySelector('p.small').textContent = accountId
+    ? 'Sua conta já está criada. Ao continuar, conecte o Mercado Livre. O pagamento vem depois da consulta real, antes de liberar o relatório completo.'
+    : 'Ao continuar, você cria sua conta gratuitamente e conecta o Mercado Livre. O pagamento vem depois da consulta real, antes de liberar o relatório completo.';
   const config = await api('/api/payments?view=config');
   payButton.textContent = 'Continuar por R$ 1 →';
   payButton.disabled = false;
   payMessage.textContent = config.enabled ? 'Cadastro gratuito na próxima etapa. Nenhuma cobrança é feita ao criar sua conta.' : 'Você pode criar sua conta agora. A cobrança ainda está desativada; nenhum pagamento será feito nesta etapa.';
+  if (accountId) payMessage.textContent = config.enabled ? 'Sua conta já está criada. Conecte o Mercado Livre na próxima etapa para continuar.' : 'Você pode conectar o Mercado Livre agora. A cobrança ainda está desativada; nenhum pagamento será feito nesta etapa.';
   byId('reportHistory').closest('section').classList.add('hidden');
 }
 function updateProgress(event) {
@@ -205,13 +210,15 @@ async function start() {
       return;
     }
     message.textContent = error.message;
-    if (error.code === 'ML_NOT_CONNECTED' || /ML_SESSION_EXPIRED/.test(error.code || '')) actionLink('Conectar Mercado Livre e continuar', '/conectar/mercadolivre?next=diagnostico');
+    if (error.code === 'ML_NOT_CONNECTED' || /ML_SESSION_EXPIRED/.test(error.code || '')) {
+      try { await showAnonymousDemo(); } catch { actionLink('Conectar Mercado Livre e continuar', '/conectar/mercadolivre?next=diagnostico'); }
+    }
     else actionLink('Informar outro anúncio', '/');
   }
 }
 payButton.addEventListener('click', async () => {
   if (anonymousDemo) {
-    location.assign('/login?next=diagnostico&checkout=1');
+    location.assign(accountId ? '/conectar/mercadolivre?next=diagnostico' : '/login?next=diagnostico&checkout=1');
     return;
   }
   payButton.disabled = true; payMessage.textContent = 'Preparando sua análise e o checkout de R$ 1…';
