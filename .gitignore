@@ -5,3 +5,4 @@ data/
 
 .vercel
 node_modules/
+.mp-integrate-progress.md

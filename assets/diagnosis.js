@@ -145,6 +145,11 @@
     }catch(error){
       const reconnect = error.status === 401 || /NOT_CONNECTED|EXPIRED/.test(error.code || '');
       $('#diagPanel').innerHTML = header(null) + `<div class="p-6 text-center"><div class="font-semibold" style="color:var(--rose)">${esc(error.message)}</div>${reconnect ? '<a href="/conectar/mercadolivre" class="btn btn-primary sm mt-4 inline-flex">Conectar Mercado Livre</a>' : ''}</div>`;
+      if (error.code === 'PAYMENT_REQUIRED') {
+        const next = document.createElement('button'); next.className = 'btn btn-primary sm'; next.textContent = 'Ver prévia gratuita · completa por R$ 1';
+        next.onclick = async () => { next.disabled = true; try { await window.startPaidAnalysis(itemId); } catch (e) { toast(e.message, 'rose'); next.disabled = false; } };
+        $('#diagPanel').append(next);
+      }
       bindClose();
     }
   };

@@ -22,8 +22,13 @@ form.onsubmit = async event => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error);
     password.value = '';
-    if (data.signedIn) location.replace('/app');
+    if (data.signedIn) location.replace(data.next === '/diagnostico' ? '/diagnostico' : '/app');
     else message.textContent = data.message;
   } catch (error) { message.textContent = error.message || 'Não foi possível conectar. Tente novamente.'; }
   finally { submit.disabled = toggle.disabled = false; }
 };
+
+if (new URLSearchParams(location.search).get('next') === 'diagnostico') {
+  toggle.click();
+  message.textContent = 'Seu anúncio foi salvo. Crie sua conta para continuar com a prévia gratuita.';
+}

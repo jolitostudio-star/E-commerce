@@ -1,6 +1,7 @@
 import { client, accountCookie, authenticate, sameOrigin, protect } from './_account.js';
 import { clearCookie } from './_auth.js';
 import { dashboard } from './_app.js';
+import { validateLead, leadCookie, readLead } from './_lead.js';
 
 export async function GET(request) {
   if (new URL(request.url).searchParams.get('view') === 'app') {
@@ -10,7 +11,7 @@ export async function GET(request) {
       return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
     }, { page: true })(request);
   }
-  return protect((req, account) => Response.json({ user: { id: account.user.id, email: account.user.email } }))(request);
+  return protect((req, account) => Response.json({ user: { id: account.user.id, email: account.user.email }, pendingListing: readLead(req) }))(request);
 }
 
 export async function POST(request) {
@@ -18,6 +19,12 @@ export async function POST(request) {
   try {
     sameOrigin(request);
     const input = await request.json();
+    if (input.action === 'lead') {
+      const ref = validateLead(input.ref);
+      if (!ref) return Response.json({ error: 'Cole um link válido de anúncio do Mercado Livre ou o ID MLB.' }, { status: 400, headers });
+      headers.append('set-cookie', leadCookie(request, ref));
+      return Response.json({ ok: true, next: '/login?next=diagnostico' }, { headers });
+    }
     const supabase = client();
     if (input.action === 'logout') {
       const account = await authenticate(request);
@@ -27,7 +34,7 @@ export async function POST(request) {
         if (error) throw error;
       }
       headers.append('set-cookie', accountCookie(request, null));
-      for (const name of ['ml_session', 'shopee_session', 'tiktok_session', 'ml_oauth_attempt', 'shopee_oauth_attempt', 'tiktok_oauth_attempt']) headers.append('set-cookie', clearCookie(name));
+      for (const name of ['ml_session', 'shopee_session', 'tiktok_session', 'ml_oauth_attempt', 'shopee_oauth_attempt', 'tiktok_oauth_attempt', 'miq_funnel_return']) headers.append('set-cookie', clearCookie(name));
       return Response.json({ ok: true }, { headers });
     }
     if (!['login', 'signup'].includes(input.action) || typeof input.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email) || typeof input.password !== 'string' || input.password.length < (input.action === 'signup' ? 8 : 1) || input.password.length > 256) {
@@ -41,7 +48,7 @@ export async function POST(request) {
       // Prevent marketplace credentials carrying over when a different person signs in.
       for (const name of ['ml_session', 'shopee_session', 'tiktok_session']) headers.append('set-cookie', clearCookie(name));
     }
-    return Response.json({ ok: true, signedIn: Boolean(data.session), message: data.session ? 'Bem-vindo!' : 'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.' }, { headers });
+    return Response.json({ ok: true, signedIn: Boolean(data.session), next: readLead(request) ? '/diagnostico' : '/app', message: data.session ? 'Bem-vindo!' : 'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.' }, { headers });
   } catch (error) {
     return Response.json({ error: error.status ? error.message : 'Não foi possível concluir. Tente novamente.' }, { status: error.status || 503, headers });
   }

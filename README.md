@@ -10,7 +10,7 @@ Painel de margem para operações de e-commerce. A pesquisa competitiva usa dado
 
 Execute `npm.cmd install` antes de iniciar. A autenticação usa o cliente oficial do Supabase.
 
-O `server.mjs` executa as mesmas funções de `api/` usadas na Vercel (incluindo as reescritas de `vercel.json`) e serve apenas `login.html`, `finalizar.html` e `assets/`. O `ML_ACCESS_TOKEN` só é usado fora da Vercel; em produção cada visitante conecta a própria conta via OAuth.
+O `server.mjs` executa as mesmas funções de `api/` usadas na Vercel (incluindo as reescritas de `vercel.json`) e serve as páginas públicas `index.html`, `login.html`, `diagnostico.html`, `finalizar.html` e `assets/`. O painel `/app` exige autenticação. O `ML_ACCESS_TOKEN` só é usado fora da Vercel; em produção cada visitante conecta a própria conta via OAuth.
 
 ## Publicar na Vercel
 
@@ -37,7 +37,9 @@ A URI de retorno (`ML_REDIRECT_URI`) deve ser exatamente a mesma cadastrada na a
 
 ## Análise estratégica de anúncio (`#analysis/<link ou ID>`)
 
-`POST /api/analysis/listing` com `{ ref, store: { cost, packaging, shipping, target, budget, commission } }`. Consulta o anúncio, o vendedor, a categoria e seus atributos, a tarifa oficial (`/sites/MLB/listing_prices`) e o catálogo concorrente. Devolve diagnóstico de título, preço, conteúdo, vendedor e vendas; preço mínimo sem prejuízo, preço para a margem-alvo e custo máximo; nível da oportunidade com os fatores; plano de ação; ideias de título; diferenciação; estoque inicial; e teste de mercado (`api/_listing.js`).
+O fluxo público guarda o link em cookie protegido, solicita cadastro gratuito e conexão com Mercado Livre, e mostra uma prévia real com `POST /api/analysis/listing` `{ action: 'previa' }`. O diagnóstico completo custa **R$ 1 por anúncio**, sem assinatura. `POST /api/payments` cria o Checkout Pro; `POST /api/analysis/listing` `{ action: 'completo', orderId }` libera o relatório somente após conferir a conta e consultar o pagamento no Mercado Pago. Custos opcionais são enviados ao preparar o checkout, e o resultado comprado é uma consulta datada que pode ser reaberta sem cobrança.
+
+Configuração, roteiro de testes e revisão de segurança: [docs/mercadopago.md](docs/mercadopago.md). Enquanto `MP_PAYMENTS_ENABLED` não for `1` e todas as credenciais não estiverem configuradas, a página explica que o pagamento está indisponível. Nenhuma análise completa é liberada por parâmetros do navegador.
 
 - Todo valor estimado (ritmo, faturamento, estoque, teste) vem com `estimated: true` e aparece como **Estimativa** na tela.
 - Descrições e imagens de concorrentes não são lidas nem reproduzidas. As ideias de título usam só termos frequentes do segmento e campos como `[Sua Marca]`.

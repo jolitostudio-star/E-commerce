@@ -311,27 +311,12 @@
 
   async function runListingAnalysis(){
     const ref = $('#anRef').value.trim();
-    if(!ref){ $('#anRef').classList.add('err'); setTimeout(() => $('#anRef').classList.remove('err'), 600); $('#anRef').focus(); return; }
-    const button = $('#anRun');
-    button.disabled = true; button.innerHTML = `${icon('refresh','w-4 h-4 animate-spin')}Analisando anúncio, tarifas e concorrência…`;
-    $('#anResult').innerHTML = '<div class="grid md:grid-cols-3 gap-4">' + Array.from({ length:6 }, () => '<div class="skel h-[160px]"></div>').join('') + '</div>';
-    try{
-      const commission = state.marketplaces.find(m => m.id === 'ml')?.commission ?? 11.9;
-      const data = await api('/api/analysis/listing', { method:'POST', body:JSON.stringify({ ref, store:{
-        cost:$('#anCost').value, packaging:$('#anPack').value, shipping:$('#anShip').value,
-        target:$('#anTarget').value, budget:$('#anBudget').value, commission
-      } }) });
-
-      const history = read(STORE.history, []).filter(h => h.id !== data.listing.id);
-      history.unshift({ ref, id:data.listing.id, title:data.listing.title, level:data.strategy.opportunity.label, at:Date.now() });
-      write(STORE.history, history.slice(0, 6));
-      renderHistory();
-      renderAnalysis(data);
-    }catch(error){
-      $('#anResult').innerHTML = errorBox(error);
-    }finally{
-      button.disabled = false; button.innerHTML = `${icon('target','w-4 h-4')}Analisar anúncio`;
-    }
+    if(!ref){ $('#anRef').focus(); return; }
+    const button = $('#anRun'); button.disabled = true;
+    try {
+      await window.startPaidAnalysis(ref, { cost:$('#anCost').value, packaging:$('#anPack').value, shipping:$('#anShip').value, target:$('#anTarget').value });
+    } catch(error) { $('#anResult').innerHTML = errorBox(error); }
+    finally { button.disabled = false; }
   }
 
   const kv = (label, value) => `<div class="kv"><span>${label}</span><b>${value}</b></div>`;

@@ -10,6 +10,15 @@ logout.addEventListener('click', async () => {
   } catch { logout.disabled = false; logout.textContent = 'Tentar sair novamente'; }
 });
 document.body.append(logout);
+window.startPaidAnalysis = async (ref, costs = null) => {
+  const response = await fetch('/api/account', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'lead', ref }) });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Não foi possível continuar.');
+  localStorage.removeItem(window.accountId + ':miq_checkout:' + String(ref).trim());
+  sessionStorage.removeItem(window.accountId + ':miq_analysis_costs');
+  if (costs) sessionStorage.setItem(window.accountId + ':miq_analysis_costs', JSON.stringify(costs));
+  location.assign('/diagnostico');
+};
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (...args) => {
   const response = await originalFetch(...args);

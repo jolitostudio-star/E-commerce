@@ -51,7 +51,7 @@ export function protect(handler, { page = false } = {}) {
       if (account.cookie) response.headers.append('set-cookie', account.cookie);
       return response;
     } catch (error) {
-      return Response.json({ error: error.status ? error.message : 'Não foi possível validar sua sessão.' }, { status: error.status || 503, headers: { 'cache-control': 'no-store' } });
+      return Response.json({ error: error.status ? error.message : 'Não foi possível validar sua sessão.', ...(error.status && error.code ? { code: error.code } : {}) }, { status: error.status || 503, headers: { 'cache-control': 'no-store' } });
     }
   };
 }

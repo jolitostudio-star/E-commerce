@@ -9,3 +9,5 @@ data/
 .codex-audio-tools/
 .codex-video-tools/
 .video-analysis/
+supabase/
+.mp-integrate-progress.md

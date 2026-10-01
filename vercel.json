@@ -4,10 +4,6 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/api/account?view=app"
-    },
-    {
       "source": "/index",
       "destination": "/api/account?view=app"
     },
