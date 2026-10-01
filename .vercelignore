@@ -1,0 +1,8 @@
+# Nunca publicar segredos nem arquivos que só servem ao desenvolvimento local.
+.env
+.env.*
+!.env.example
+test/
+server.mjs
+data/
+*.log

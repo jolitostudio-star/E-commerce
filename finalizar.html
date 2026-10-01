@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Conectando Mercado Livre · MargemIQ</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#07080b;color:#eef1f5;font:16px Inter,system-ui}
+  main{max-width:520px;margin:24px;padding:32px;border:1px solid #283020;border-radius:18px;background:#0e1015}
+  h1{font-size:24px;margin:0 0 10px}p{color:#9aa2ae;line-height:1.6}
+</style>
+<main><h1>Concluindo a conexão…</h1><p>Validando a autorização segura com o Mercado Livre.</p></main>
+<script>
+  const params = new URLSearchParams(location.hash.slice(1));
+  const code = params.get('code');
+  const state = params.get('state');
+  if (!code || !state) {
+    document.querySelector('p').textContent = 'Dados de autorização ausentes ou expirados.';
+  } else {
+    history.replaceState(null, '', '/finalizar.html');
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/api/oauth?provider=mercadolivre&step=finish';
+    for (const [name, value] of Object.entries({ code, state })) {
+      const input = document.createElement('input');
+      input.type = 'hidden'; input.name = name; input.value = value; form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+  }
+</script>
+</html>

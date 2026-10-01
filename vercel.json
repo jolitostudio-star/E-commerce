@@ -1,0 +1,86 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/api/account?view=app"
+    },
+    {
+      "source": "/index",
+      "destination": "/api/account?view=app"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/api/account?view=app"
+    },
+    {
+      "source": "/app",
+      "destination": "/api/account?view=app"
+    },
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/integracao/mercadolivre/retorno",
+      "destination": "/api/oauth?provider=mercadolivre&step=callback"
+    },
+    {
+      "source": "/conectar/mercadolivre",
+      "destination": "/api/oauth?provider=mercadolivre&step=connect"
+    },
+    {
+      "source": "/integracao/shopee/retorno",
+      "destination": "/api/oauth?provider=shopee&step=callback"
+    },
+    {
+      "source": "/conectar/shopee",
+      "destination": "/api/oauth?provider=shopee&step=connect"
+    },
+    {
+      "source": "/integracao/tiktok/retorno",
+      "destination": "/api/oauth?provider=tiktok&step=callback"
+    },
+    {
+      "source": "/conectar/tiktok",
+      "destination": "/api/oauth?provider=tiktok&step=connect"
+    },
+    {
+      "source": "/api/radar/trends",
+      "destination": "/api/radar?view=trends"
+    },
+    {
+      "source": "/api/radar/categories",
+      "destination": "/api/radar?view=categories"
+    },
+    {
+      "source": "/api/radar/keyword",
+      "destination": "/api/radar?view=keyword"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ]
+}
