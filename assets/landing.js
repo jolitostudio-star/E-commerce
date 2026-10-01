@@ -15,7 +15,7 @@ leadForm.addEventListener('submit', async event => {
       localStorage.removeItem(account.user.id + ':miq_checkout:' + account.pendingListing);
       sessionStorage.removeItem(account.user.id + ':miq_analysis_costs');
     }
-    location.assign(session.ok ? '/diagnostico' : '/login?next=diagnostico');
+    location.assign('/diagnostico');
   } catch (error) {
     leadMessage.textContent = error.message || 'Não foi possível continuar. Tente novamente.';
     leadButton.disabled = false;

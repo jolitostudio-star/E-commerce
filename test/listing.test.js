@@ -58,6 +58,19 @@ function mlMock({ sold = 300, pictures = 3 } = {}) {
   };
 }
 
+test('progresso conclui somente etapas realmente executadas na consulta', async () => {
+  const events = [];
+  await analyzeListing('test-token', { ref:'MLB111111111' }, { fetch:mlMock(), onProgress:event=>events.push(event) });
+  for (const stage of ['link','content','pricing','summary']) {
+    const started = events.findIndex(event=>event.stage===stage && event.state==='running');
+    const done = events.findIndex(event=>event.stage===stage && event.state==='done');
+    assert.ok(started >= 0 && done > started, stage);
+  }
+  const failed = [];
+  await assert.rejects(analyzeListing('test-token',{ref:'MLB111111111'},{fetch:async()=>json({},404),onProgress:event=>failed.push(event)}));
+  assert.equal(failed.some(event=>event.state==='done'),false);
+});
+
 test('monta a análise estratégica completa com estimativas identificadas', async () => {
   const result = await analyzeListing('token', {
     ref: 'https://produto.mercadolivre.com.br/MLB-111111111-fone-_JM',

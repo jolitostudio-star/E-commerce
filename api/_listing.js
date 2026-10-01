@@ -392,6 +392,8 @@ const optional = promise => promise.catch(error => {
 });
 
 export async function analyzeListing(token, input, options = {}) {
+  const progress = (stage, state) => options.onProgress?.({ stage, state });
+  progress('link', 'running');
   let ref = parseListingRef(input?.ref);
   if (!ref && isShortListingLink(input?.ref)) {
     const resolved = await resolveShortListingLink(input.ref, options);
@@ -418,6 +420,9 @@ export async function analyzeListing(token, input, options = {}) {
     throw error;
   });
   if (!(Number(item?.price) > 0)) throw mlError('O anúncio não tem um preço ativo para analisar.', 422, 'LISTING_WITHOUT_PRICE');
+  progress('link', 'done');
+  progress('content', 'running');
+  progress('pricing', 'running');
 
   const searchTerms = tokens(item.title).slice(0, 5).join(' ');
   const feeAt = feeCalculator(token, item, store.commission, options);
@@ -447,12 +452,15 @@ export async function analyzeListing(token, input, options = {}) {
   const sales = salesOf(item, now);
   const seller = reputationOf(sellerRaw);
   const me = meRaw && String(meRaw.id) !== String(item.seller_id) ? reputationOf(meRaw) : null;
+  progress('content', 'done');
 
   const hasCost = store.cost > 0;
   const minimum = hasCost ? await solvePrice(feeAt, store.cost, store.shipping, 0, Number(item.price)) : null;
   const target = hasCost ? await solvePrice(feeAt, store.cost, store.shipping, store.target, Number(item.price)) : null;
   const maxCost = round2(Number(item.price) * (1 - fee.percentage - store.target) - fee.fixed - store.shipping);
   const prices = { minimum, target, maxCost: maxCost > 0 ? maxCost : null };
+  progress('pricing', 'done');
+  progress('summary', 'running');
 
   const categoryInfo = category ? {
     id: String(category.id),
@@ -467,6 +475,7 @@ export async function analyzeListing(token, input, options = {}) {
 
   const price = Number(item.price);
   const originalPrice = Number(item.original_price) > price ? Number(item.original_price) : null;
+  progress('summary', 'done');
   return {
     listing: {
       id: String(item.id),

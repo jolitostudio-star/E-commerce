@@ -7,6 +7,7 @@ import { mlFetch } from '../_ml.js';
 import { assertSameOrigin, respondWithSession } from '../_session.js';
 import { readLead, previewOf } from '../_lead.js';
 import { paidOrder, billingError } from '../_billing.js';
+import { streamPreview } from '../_analysis-progress.js';
 
 // Análise de anúncio, diagnóstico de anúncio próprio e sugestão de descrição na mesma função
 // (o plano Hobby da Vercel limita o número de funções). Nada aqui altera anúncios no Mercado Livre.
@@ -16,7 +17,7 @@ async function handlePOST(request, account) {
     if (input?.action === 'previa') {
       const ref = readLead(request);
       if (!ref) throw Object.assign(new Error('Cole o link do anúncio para começar.'), { status: 400, code: 'LEAD_REQUIRED' });
-      return respondWithSession(request, async token => previewOf(await analyzeListing(token, { ref })));
+      return respondWithSession(request, async token => input.progress ? streamPreview(token, ref) : previewOf(await analyzeListing(token, { ref })));
     }
     if (!input?.orderId) throw billingError('A análise completa custa R$ 1 por anúncio. Comece pela prévia gratuita.', 402, 'PAYMENT_REQUIRED');
     const order = await paidOrder(account.user.id, input.orderId);

@@ -27,14 +27,57 @@ function updatePaymentButton() {
   payButton.disabled = !paymentsEnabled || !previewReady;
   payMessage.textContent = !paymentsEnabled ? 'Pagamento ainda em configuração. A prévia é gratuita e nenhuma cobrança será feita agora.' : !previewReady ? 'Veja a prévia antes de decidir pelo pagamento.' : 'Pagamento único. A análise é liberada após a confirmação do Mercado Pago.';
 }
+function updateProgress(event) {
+  const row = [...byId('analysisProgress').querySelectorAll('[data-stage]')].find(entry => entry.dataset.stage === event.stage);
+  if (!row || !['running','done'].includes(event.state)) return;
+  row.dataset.state = event.state;
+  row.querySelector('.stage-icon').textContent = event.state === 'done' ? '✓' : '◌';
+  row.querySelector('small').textContent = event.state === 'done' ? 'Consultado' : 'Em andamento';
+}
+async function analyzeWithProgress() {
+  byId('analysisTitle').textContent = 'Analisando seu anúncio.';
+  byId('analysisProgress').classList.remove('hidden');
+  const response = await fetch('/api/analysis/listing', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({action:'previa',progress:true}) });
+  if (!response.ok) {
+    const data = await response.json();
+    throw Object.assign(new Error(data.error), {code:data.code});
+  }
+  const reader = response.body.getReader(), decoder = new TextDecoder();
+  let buffer = '', preview = null;
+  function consume(line) {
+    if (!line.trim()) return;
+    const event = JSON.parse(line);
+    if (event.type === 'progress') updateProgress(event);
+    if (event.type === 'ready') preview = event.preview;
+    if (event.type === 'error') throw Object.assign(new Error(event.error), {code:event.code});
+  }
+  try {
+    while (true) {
+      const {value,done} = await reader.read();
+      if (done) {buffer += decoder.decode(); break;}
+      buffer += decoder.decode(value,{stream:true});
+      let newline;
+      while ((newline = buffer.indexOf('\n')) !== -1) {
+        consume(buffer.slice(0,newline)); buffer = buffer.slice(newline+1);
+      }
+    }
+    consume(buffer);
+    if (!preview) throw new Error('A consulta foi interrompida. Tente novamente.');
+    return preview;
+  } catch(error) { await reader.cancel().catch(()=>{}); throw error; }
+  finally {reader.releaseLock();}
+}
 function renderPreview(data) {
   previewReady = true;
+  byId('analysisTitle').textContent = 'Consulta concluída. Veja seu próximo passo.';
+  byId('paidOffer').classList.remove('hidden');
   message.textContent = data.listing.title;
   const result = byId('previewResult'); result.classList.remove('hidden');
   result.innerHTML = `<div class="score">${data.titleScore === null ? '—' : escapeHtml(data.titleScore)}<span>/100 · critérios do título</span></div><p class="small">${escapeHtml(data.note)}</p><div class="finding"><span class="eyebrow">${escapeHtml(data.finding.area)}</span><h3>${escapeHtml(data.finding.title)}</h3><p>${escapeHtml(data.finding.detail)}</p></div><p class="small">Esta é uma prévia. A análise completa organiza os dados disponíveis e as sugestões.</p>`;
   updatePaymentButton();
 }
 function renderFull(report) {
+  byId('analysisTitle').textContent = 'Seu resultado está liberado.';
   byId('paidOffer').classList.add('hidden');
   byId('previewActions').replaceChildren();
   message.textContent = `Pagamento confirmado. Análise de ${report.listing.id} disponível.`;
@@ -93,6 +136,8 @@ async function start() {
     updatePaymentButton();
     await loadHistory();
     if (currentOrder) {
+      byId('paidOffer').classList.remove('hidden');
+      byId('analysisTitle').textContent = 'Confirmação do pagamento';
       message.textContent = 'Consulte a confirmação do pagamento da sua análise.';
       for (const name of ['cost','packaging','shipping','target']) byId(name).disabled = true;
       await checkOrder();
@@ -100,7 +145,7 @@ async function start() {
     }
     if (!ref) { message.textContent = 'Cole o link do anúncio para começar.'; actionLink('Informar anúncio', '/'); return; }
     message.textContent = 'Consultando os dados do anúncio…';
-    const data = await api('/api/analysis/listing', { action: 'previa' });
+    const data = await analyzeWithProgress();
     renderPreview(data);
     if (currentOrder) {
       payButton.disabled = true;
@@ -109,7 +154,15 @@ async function start() {
     const key = `${accountId}:miq_checkout:${ref}`;
     requestKey = localStorage.getItem(key) || crypto.randomUUID(); localStorage.setItem(key, requestKey);
   } catch (error) {
-    if (error.code === 'AUTH_REQUIRED') { location.replace('/login?next=diagnostico'); return; }
+    byId('analysisTitle').textContent = 'Vamos continuar sua análise.';
+    for (const row of byId('analysisProgress').querySelectorAll('[data-state="running"]')) {
+      row.dataset.state = 'paused'; row.querySelector('small').textContent = 'Interrompido';
+    }
+    if (error.code === 'AUTH_REQUIRED') {
+      message.textContent = 'Seu link foi salvo. Crie sua conta gratuitamente e conecte o Mercado Livre para consultar os dados reais do anúncio. O resultado completo custa R$ 1.';
+      actionLink('Criar conta e continuar →','/login?next=diagnostico');
+      return;
+    }
     message.textContent = error.message;
     if (error.code === 'ML_NOT_CONNECTED' || /ML_SESSION_EXPIRED/.test(error.code || '')) actionLink('Conectar Mercado Livre e continuar', '/conectar/mercadolivre?next=diagnostico');
     else actionLink('Informar outro anúncio', '/');

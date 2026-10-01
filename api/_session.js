@@ -44,7 +44,12 @@ export async function respondWithSession(request, operation) {
   let session = { cookie: null };
   try {
     session = await mercadoLivreSession(request);
-    return Response.json(await operation(session.token), { headers: sessionHeaders(session) });
+    const result = await operation(session.token);
+    if (result instanceof Response) {
+      if (session.cookie) result.headers.append('set-cookie', session.cookie);
+      return result;
+    }
+    return Response.json(result, { headers: sessionHeaders(session) });
   } catch (error) {
     if (!error.status) console.error(error);
     return Response.json({ error: error.status ? error.message : 'Erro interno.', code: error.code || 'INTERNAL_ERROR' }, {

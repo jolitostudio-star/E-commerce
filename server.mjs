@@ -72,7 +72,11 @@ async function sendWebResponse(res, response) {
   response.headers.forEach((value, key) => { if (key !== 'set-cookie') headers[key] = value; });
   const cookies = response.headers.getSetCookie();
   if (cookies.length) headers['set-cookie'] = cookies;
-  send(res, response.status, headers, Buffer.from(await response.arrayBuffer()));
+  if (response.headers.get('content-type')?.includes('application/x-ndjson')) {
+    res.writeHead(response.status, headers);
+    for await (const chunk of response.body) res.write(Buffer.from(chunk));
+    res.end();
+  } else send(res, response.status, headers, Buffer.from(await response.arrayBuffer()));
 }
 
 async function handleApi(req, res, url, modulePath) {

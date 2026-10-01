@@ -41,6 +41,8 @@ O fluxo público guarda o link em cookie protegido, solicita cadastro gratuito e
 
 Configuração, roteiro de testes e revisão de segurança: [docs/mercadopago.md](docs/mercadopago.md). Enquanto `MP_PAYMENTS_ENABLED` não for `1` e todas as credenciais não estiverem configuradas, a página explica que o pagamento está indisponível. Nenhuma análise completa é liberada por parâmetros do navegador.
 
+A tela `/diagnostico` acompanha a consulta por eventos do servidor (`action: 'previa', progress: true`, resposta NDJSON): link/dados, título/fotos/atributos, preço/tarifas/ofertas e organização dos pontos de melhoria. Não usa cronômetro para simular conclusão. O pagamento aparece somente após o evento `ready`; erros interrompem o andamento. O evento final contém apenas a prévia gratuita, nunca o relatório completo. Quem ainda não entrou recebe o convite para cadastro e conexão antes da consulta real. As fotos são verificadas por quantidade/presença, sem avaliação visual individual.
+
 - Todo valor estimado (ritmo, faturamento, estoque, teste) vem com `estimated: true` e aparece como **Estimativa** na tela.
 - Descrições e imagens de concorrentes não são lidas nem reproduzidas. As ideias de título usam só termos frequentes do segmento e campos como `[Sua Marca]`.
 - Se `sold_quantity` não vier na API, ritmo e faturamento não são estimados.
