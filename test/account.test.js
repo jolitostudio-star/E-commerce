@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { protect, accountCookie } from '../api/_account.js';
 import { GET, POST } from '../api/account.js';
 import { seal } from '../api/_auth.js';
+import { leadCookie } from '../api/_lead.js';
 
 process.env.SESSION_SECRET = 'test-secret-at-least-thirty-two-characters';
 process.env.SUPABASE_URL = 'https://example.supabase.co';
@@ -18,6 +19,21 @@ test('API blocks anonymous requests before running business logic', async () => 
   const response = await protect(() => { called = true; return Response.json({}); })(request());
   assert.equal(response.status, 401);
   assert.equal(called, false);
+});
+
+test('anonymous demo reads only its own saved reference without accessing Auth', async () => {
+  globalThis.fetch = async () => { throw new Error('Anonymous demo must not call Auth'); };
+  const cookie = leadCookie(new Request(origin), 'https://meli.la/example').split(';')[0];
+  const response = await GET(new Request(origin + '/api/account?view=lead', { headers: { cookie } }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { pendingListing:'https://meli.la/example' });
+  assert.equal(response.headers.get('cache-control'), 'private, no-store');
+});
+
+test('anonymous demo cannot read a forged reference or a protected dashboard', async () => {
+  const response = await GET(new Request(origin + '/api/account?view=lead', { headers: { cookie:'miq_lead=forged' } }));
+  assert.deepEqual(await response.json(), {pendingListing:null});
+  assert.equal((await GET(new Request(origin + '/api/account?view=app'))).status,303);
 });
 test('protected dashboard redirects anonymous users', async () => {
   const response = await GET(new Request(origin + '/api/account?view=app'));

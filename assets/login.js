@@ -30,5 +30,7 @@ form.onsubmit = async event => {
 
 if (new URLSearchParams(location.search).get('next') === 'diagnostico') {
   toggle.click();
-  message.textContent = 'Seu anúncio foi salvo. Crie sua conta para continuar com a prévia gratuita.';
+  message.textContent = new URLSearchParams(location.search).get('checkout') === '1'
+    ? 'Crie sua conta gratuitamente para continuar. Depois, conecte o Mercado Livre; o relatório completo custa R$ 1. Nenhuma cobrança é feita no cadastro.'
+    : 'Seu anúncio foi salvo. Crie sua conta para continuar com a prévia gratuita.';
 }

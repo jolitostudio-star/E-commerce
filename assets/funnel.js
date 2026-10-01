@@ -11,6 +11,7 @@ let accountId = null;
 let previewReady = false;
 let paymentsEnabled = false;
 let requestKey = null;
+let anonymousDemo = false;
 
 async function api(path, body) {
   const response = await fetch(path, body ? { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify(body) } : undefined);
@@ -26,6 +27,39 @@ function actionLink(label, href) {
 function updatePaymentButton() {
   payButton.disabled = !paymentsEnabled || !previewReady;
   payMessage.textContent = !paymentsEnabled ? 'Pagamento ainda em configuração. A prévia é gratuita e nenhuma cobrança será feita agora.' : !previewReady ? 'Veja a prévia antes de decidir pelo pagamento.' : 'Pagamento único. A análise é liberada após a confirmação do Mercado Pago.';
+}
+async function showAnonymousDemo() {
+  const lead = await api('/api/account?view=lead');
+  ref = lead.pendingListing;
+  if (!ref) {
+    byId('analysisTitle').textContent = 'Qual anúncio você quer analisar?';
+    message.textContent = 'Informe um link de anúncio do Mercado Livre para começar.';
+    actionLink('Informar anúncio →','/');
+    return;
+  }
+  anonymousDemo = true;
+  byId('analysisTitle').textContent = 'Veja como funciona o diagnóstico.';
+  message.textContent = 'Simulação demonstrativa. O link foi salvo; a consulta real do anúncio acontece depois do cadastro e da conexão com o Mercado Livre.';
+  byId('analysisProgress').classList.remove('hidden');
+  byId('analysisProgress').querySelector('p').textContent = 'Estas etapas apresentam o funcionamento da análise. Não são resultados do seu anúncio. Relatório completo por R$ 1, sem assinatura.';
+  for (const stage of ['link','content','pricing','summary']) {
+    updateProgress({stage,state:'running'});
+    await new Promise(resolve => setTimeout(resolve,800));
+    const row = [...byId('analysisProgress').querySelectorAll('[data-stage]')].find(entry=>entry.dataset.stage===stage);
+    row.dataset.state = 'done';
+    row.querySelector('.stage-icon').textContent = '✓';
+    row.querySelector('small').textContent = 'Apresentado';
+  }
+  byId('analysisTitle').textContent = 'Próximo passo: liberar sua análise completa.';
+  byId('paidOffer').classList.remove('hidden');
+  byId('paidOffer').querySelector('h2').textContent = 'Continue por R$ 1 por anúncio.';
+  byId('paidOffer').querySelector('details').classList.add('hidden');
+  byId('paidOffer').querySelector('p.small').textContent = 'Ao continuar, você cria sua conta gratuitamente e conecta o Mercado Livre. O pagamento vem depois da consulta real, antes de liberar o relatório completo.';
+  const config = await api('/api/payments?view=config');
+  payButton.textContent = 'Continuar por R$ 1 →';
+  payButton.disabled = false;
+  payMessage.textContent = config.enabled ? 'Cadastro gratuito na próxima etapa. Nenhuma cobrança é feita ao criar sua conta.' : 'Você pode criar sua conta agora. A cobrança ainda está desativada; nenhum pagamento será feito nesta etapa.';
+  byId('reportHistory').closest('section').classList.add('hidden');
 }
 function updateProgress(event) {
   const row = [...byId('analysisProgress').querySelectorAll('[data-stage]')].find(entry => entry.dataset.stage === event.stage);
@@ -159,8 +193,15 @@ async function start() {
       row.dataset.state = 'paused'; row.querySelector('small').textContent = 'Interrompido';
     }
     if (error.code === 'AUTH_REQUIRED') {
-      message.textContent = 'Seu link foi salvo. Crie sua conta gratuitamente e conecte o Mercado Livre para consultar os dados reais do anúncio. O resultado completo custa R$ 1.';
-      actionLink('Criar conta e continuar →','/login?next=diagnostico');
+      if (currentOrder) {
+        message.textContent = 'Entre na conta que comprou esta análise para consultar o resultado.';
+        actionLink('Entrar na minha conta →','/login');
+        return;
+      }
+      try { await showAnonymousDemo(); } catch (demoError) {
+        message.textContent = demoError.message || 'Não foi possível preparar a demonstração.';
+        actionLink('Informar anúncio →','/');
+      }
       return;
     }
     message.textContent = error.message;
@@ -169,6 +210,10 @@ async function start() {
   }
 }
 payButton.addEventListener('click', async () => {
+  if (anonymousDemo) {
+    location.assign('/login?next=diagnostico&checkout=1');
+    return;
+  }
   payButton.disabled = true; payMessage.textContent = 'Preparando sua análise e o checkout de R$ 1…';
   try {
     const data = await api('/api/payments', { requestKey, store: { cost: byId('cost')?.value || 0, packaging: byId('packaging')?.value || 0, shipping: byId('shipping')?.value || 0, target: byId('target')?.value || 20 } });

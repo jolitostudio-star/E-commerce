@@ -4,6 +4,9 @@ import { dashboard } from './_app.js';
 import { validateLead, leadCookie, readLead } from './_lead.js';
 
 export async function GET(request) {
+  if (new URL(request.url).searchParams.get('view') === 'lead') {
+    return Response.json({ pendingListing: readLead(request) }, { headers: { 'cache-control': 'private, no-store' } });
+  }
   if (new URL(request.url).searchParams.get('view') === 'app') {
     return protect((req, account) => {
       const id = JSON.stringify(account.user.id).replace(/</g, '\\u003c');
@@ -23,7 +26,7 @@ export async function POST(request) {
       const ref = validateLead(input.ref);
       if (!ref) return Response.json({ error: 'Cole um link válido de anúncio do Mercado Livre ou o ID MLB.' }, { status: 400, headers });
       headers.append('set-cookie', leadCookie(request, ref));
-      return Response.json({ ok: true, next: '/login?next=diagnostico' }, { headers });
+      return Response.json({ ok: true, next: '/diagnostico' }, { headers });
     }
     const supabase = client();
     if (input.action === 'logout') {
